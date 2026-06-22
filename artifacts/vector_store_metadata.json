@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "feature": "Local Vector Store Retrieval using Precomputed LSA Embeddings",
+  "backend": "faiss",
+  "index_type": "IndexFlatIP",
+  "library_version": "1.14.3",
+  "artifact_file": "vector_store.index",
+  "document_count": 241006,
+  "dimensions": 64,
+  "vector_dtype": "float32",
+  "normalized": true,
+  "similarity": "cosine via inner product on normalized vectors",
+  "document_id_digest": "fc6463eda14215b62cf079acd7e98744d88662bb215bda7226565fd38732d8d6",
+  "source_artifact": "search_index.joblib",
+  "created_at_utc": "2026-06-21T22:32:17.414535+00:00",
+  "build_seconds": 0.19844179999927292,
+  "artifact_size_bytes": 61697581
+}

@@ -1,0 +1,2 @@
+n_clusters,document_count,evaluation_sample,silhouette_cosine,davies_bouldin,calinski_harabasz,inertia
+12,241006,2500,0.14112958312034607,3.063989452188998,67.81375885009766,141350.890625

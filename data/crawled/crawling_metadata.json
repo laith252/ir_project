@@ -1,0 +1,38 @@
+{
+  "crawl_mode": "offline_cached",
+  "source": "ClinicalTrials.gov API v2",
+  "source_url": "https://clinicaltrials.gov/api/v2/studies",
+  "crawl_started_at_utc": "2026-06-21T18:09:55.370344+00:00",
+  "queries": [
+    "cancer",
+    "diabetes",
+    "cardiovascular disease",
+    "depression",
+    "surgery"
+  ],
+  "documents_requested": 50,
+  "documents_received": 50,
+  "successful_documents": 50,
+  "failed_documents": 0,
+  "duplicate_documents_removed": 0,
+  "invalid_documents_removed": 0,
+  "unique_documents": 50,
+  "successful_requests": 5,
+  "failed_requests": 0,
+  "average_document_length_words": 107.04,
+  "crawl_duration_seconds": 9.98024439999972,
+  "raw_file": "data\\crawled\\crawled_trials_raw.json",
+  "clean_file": "data\\crawled\\crawled_trials_clean.csv",
+  "evaluation": {
+    "benchmark_queries": [
+      "cancer immunotherapy",
+      "diabetes insulin glucose",
+      "cardiovascular heart disease",
+      "depression treatment",
+      "surgery anesthesia"
+    ],
+    "benchmark_runs": 10,
+    "average_search_latency_ms": 0.4030800000327872,
+    "max_search_latency_ms": 1.0625000013533281
+  }
+}

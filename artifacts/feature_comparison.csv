@@ -1,0 +1,5 @@
+feature,off_before,on_after,effect,evaluation,how_to_test
+RAG Chat,Retrieved document list,Grounded answer with cited sources,Turns retrieval results into an understandable evidence-based answer,Groundedness / Citation Coverage,Compare Search tab with RAG Chat using the same question
+Document Clustering,Flat ranked result list,Results grouped by topic,Improves navigation without changing rank or score,Silhouette / Davies-Bouldin / Cluster Charts,Run the same query with Enable Document Clustering OFF then ON
+Offline Web Crawling,Official Dataset results only,Separate Crawled Source Results,Adds an external cached source that works offline,Success Rate / Duplicates / Search Latency,Run the same query with Include Crawled Documents OFF then ON
+Local Vector Store,LSA Brute Force,FAISS Vector Store,Preserves quality while reducing vector retrieval latency,Top-10 Overlap / Latency / MAP / nDCG,Compare embedding and vector_store with the same query and Top K

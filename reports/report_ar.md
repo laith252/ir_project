@@ -265,7 +265,126 @@ python scripts\evaluate_bert.py
 python scripts\evaluate_rag.py
 ```
 
-## 13. GitHub
+## 13. ميزة Documents Clustering
+
+تمت إضافة خدمة مستقلة باسم `ClusteringService` لتنظيم نتائج البحث موضوعياً دون تغيير ترتيبها أو درجاتها. تعتمد الخدمة على تمثيلات LSA المحفوظة مسبقاً داخل `search_index.joblib`، ثم تطبق `MiniBatchKMeans` محلياً مرة واحدة على كامل الوثائق البالغ عددها 241,006 وثيقة.
+
+تم اختيار 12 مجموعة موضوعية، وحُفظت النتائج في ملف مستقل باسم `artifacts/document_clusters.joblib`. لا تعدّل هذه العملية فهرس البحث أو قاعدة البيانات ولا تحتاج إلى إعادة تدريب على Colab. تعرض الواجهة خيار `Enable Document Clustering`، وعند تعطيله تبقى النتائج الأساسية كما هي، وعند تفعيله تُعرض النتائج ضمن مجموعات موضوعية مع المحافظة على `rank` و`score` الأصليين.
+
+تم تقييم التجميع على عينة ثابتة من 2,500 وثيقة، وكانت النتائج:
+
+| المقياس | القيمة |
+|---|---:|
+| عدد الوثائق | 241,006 |
+| عدد المجموعات | 12 |
+| Silhouette Score (Cosine) | 0.1411 |
+| Davies–Bouldin Index | 3.0640 |
+| Calinski–Harabasz Score | 67.8138 |
+
+كما تم توليد رسم لتوزيع الوثائق بين المجموعات ورسم PCA لعينة من 5,000 وثيقة في:
+
+- `reports/figures/clustering_distribution.png`
+- `reports/figures/clustering_scatter.png`
+
+لبناء ملف التجميع بشكل مستقل:
+
+```powershell
+python scripts\build_clusters.py --clusters 12
+```
+
+## 14. ميزة Offline Web Crawling
+
+تمت إضافة عملية جمع مستقلة من المصدر الرسمي `ClinicalTrials.gov API v2`. يجمع السكربت 50 دراسة موزعة بالتساوي على السرطان والسكري وأمراض القلب والاكتئاب والجراحة، ثم يحفظ الاستجابات الخام كاملة في `data/crawled/crawled_trials_raw.json`، والنسخة المنظفة في `data/crawled/crawled_trials_clean.csv`، وإحصائيات الجمع في `data/crawled/crawling_metadata.json`.
+
+تستخدم `CrawledRetrievalService` فهرس TF-IDF صغيراً يُبنى محلياً عند تشغيل المشروع من ملف CSV المحفوظ. لا تحتاج عملية البحث إلى الإنترنت، ولا تعدّل `search_index.joblib` أو `documents.sqlite`. يوفر خيار `Include Crawled Documents` مقارنة مستقلة: عند تعطيله تظهر نتائج Dataset الرسمية فقط، وعند تفعيله يظهر قسم منفصل باسم `Crawled Source Results` بعد النتائج الرسمية، ولا يتم خلط الدرجات أو الترتيب بين المصدرين.
+
+نتائج الجمع والتقييم الفعلية:
+
+| المقياس | القيمة |
+|---|---:|
+| الوثائق المطلوبة | 50 |
+| الوثائق الناجحة | 50 |
+| الوثائق الفاشلة | 0 |
+| التكرارات المحذوفة | 0 |
+| الوثائق الفريدة | 50 |
+| متوسط طول الوثيقة | 107.04 كلمة |
+| متوسط زمن البحث المحلي | 0.40 ms |
+| أقصى زمن بحث في الاختبار | 1.06 ms |
+
+لا تستخدم MAP أوnDCG أوPrecision أوRecall مع هذه الوثائق بسبب عدم توفر qrels لها. بدلاً من ذلك تم تقييم نجاح الجمع، إزالة التكرار، اكتمال البيانات، ومتوسط زمن البحث المحلي. الرسم محفوظ في `reports/figures/crawling_evaluation.png`.
+
+```powershell
+python scripts\crawl_clinicaltrials.py --per-query 10
+python scripts\evaluate_crawled.py
+```
+
+## 15. ميزة Local Vector Store Retrieval
+
+تمت إضافة طريقة استرجاع مستقلة باسم `vector_store` باستخدام مكتبة FAISS وإحداثيات LSA المحفوظة مسبقاً. حمّل سكربت `scripts/build_vector_store.py` المصفوفة الجاهزة من `search_index.joblib`، وطبّع 241,006 متجهات ذات 64 بعداً، ثم بنى `FAISS IndexFlatIP` وحفظه في `artifacts/vector_store.index` بحجم 58.84MB. لم تتم إعادة معالجة الوثائق أو إعادة تدريب SVD، ولم يُعدّل الفهرس الأساسي أو قاعدة البيانات.
+
+تتحقق `VectorStoreService` من عدد الوثائق والأبعاد وdigest ترتيب `doc_ids` قبل تحميل الفهرس. يُحوّل الاستعلام بنفس TF-IDF وSVD وnormalization المستخدم في LSA، ثم يبحث باستخدام Inner Product الذي يعادل Cosine Similarity للمتجهات المطبّعة. تظهر الطريقة في قائمة Retrieval Method ويمكن استخدامها أيضاً عبر FastAPI وRAG.
+
+تم تقييم FAISS رسمياً على 29 استعلاماً لها qrels وبعمق 1000. تطابقت جميع مقاييس الجودة ونسبة تداخل Top-10 مع LSA Brute Force، بينما انخفض متوسط زمن البحث بحوالي 49%:
+
+| الطريقة | MAP@1000 | nDCG@10 | P@10 | Recall@1000 | Avg latency | Median | P95 |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| LSA Brute Force | 0.001263 | 0.004484 | 0.013793 | 0.076318 | 29.98 ms | 24.71 ms | 43.86 ms |
+| FAISS Vector Store | 0.001263 | 0.004484 | 0.013793 | 0.076318 | 15.31 ms | 14.72 ms | 20.47 ms |
+
+بلغ زمن تحميل FAISS Index نحو 158.85ms، وتطابقت نتائج Top-10 بنسبة 100%. تحفظ النتائج في `artifacts/vector_store_evaluation_metrics.csv` والرسم في `reports/figures/vector_store_evaluation.png`.
+
+```powershell
+python scripts\build_vector_store.py --backend faiss
+python scripts\evaluate_vector_store.py
+```
+
+## 16. Feature Comparison: Before & After
+
+تمت إضافة لوحة مقارنة في أعلى تبويب Evaluation لتوضيح وظيفة كل ميزة إضافية وطريقة تجربتها قبل وبعد التفعيل. لا تُعامل المقاييس المختلفة كأنها على مقياس واحد؛ بل يُعرض جدول موحد للشرح، ثم بطاقات رقمية ورسومات متخصصة لكل ميزة.
+
+| Feature | OFF / Before | ON / After | Effect | Evaluation | How to Test |
+|---|---|---|---|---|---|
+| RAG Chat | نتائج وثائق فقط | جواب Grounded مع مصادر | تحويل نتائج الاسترجاع إلى جواب مفهوم | Groundedness / Citation Coverage | مقارنة Search مع RAG Chat للسؤال نفسه |
+| Document Clustering | قائمة مرتبة عادية | نتائج مجمعة موضوعياً | تسهيل التصفح دون تغيير rank أوscore | Silhouette / Davies-Bouldin / Charts | تشغيل الاستعلام والزر OFF ثم ON |
+| Offline Web Crawling | Dataset الرسمية فقط | قسم Crawled Source مستقل | إضافة مصدر خارجي محفوظ يعمل Offline | Success / Duplicates / Latency | تشغيل الاستعلام والزر OFF ثم ON |
+| Local Vector Store | LSA Brute Force | FAISS Vector Store | الحفاظ على الجودة مع تقليل زمن البحث | Top-10 Overlap / Latency / MAP / nDCG | مقارنة embedding مع vector_store |
+
+تقرأ البطاقات الأرقام مباشرة من ملفات CSV المحفوظة، وكانت القيم النهائية:
+
+| البطاقة | القيمة |
+|---|---:|
+| RAG Groundedness | 100% |
+| RAG Citation Coverage | 60% |
+| Clustering Silhouette | 0.1411 |
+| Davies-Bouldin | 3.0640 |
+| Crawling Success | 50/50 |
+| Crawled Offline Search Latency | 0.40 ms |
+| FAISS Speed-up | 48.9% |
+| FAISS Top-10 Overlap | 100% |
+
+تم حفظ وصف المقارنة في `artifacts/feature_comparison.csv`. توضح اللوحة أن الإضافات لا تتداخل: RAG للإجابة، Clustering للتنظيم، Crawling لإضافة مصدر Offline، وVector Store لتسريع البحث المتجهي.
+
+## 17. تصدير نتائج البحث إلى CSV
+
+تمت إضافة `SearchExportService` وزر `Download Search Results as CSV` بعد عرض نتائج البحث. يحفظ النظام آخر عملية بحث في `session_state`، لذلك يبقى زر التحميل متاحاً ولا تختفي البيانات عند الضغط عليه. لا تغيّر عملية التصدير أي خوارزمية أو ترتيب أو score؛ بل تحول النتائج الظاهرة إلى ملف قابل للاستخدام في Excel أو التحليل اللاحق.
+
+يحتوي الملف على: query، source، rank، doc_id، retrieval_method، score، title، condition، snippet، URL، cluster_id، cluster_label، إعداد Query Refinement، Top K، وقيم BM25. تحمل نتائج Dataset القيمة `official_dataset` في عمود source، وتحمل نتائج Crawling القيمة `crawled`. عند تفعيل Clustering تُملأ معلومات المجموعة للنتائج الرسمية فقط، وتبقى فارغة لنتائج Crawling.
+
+يستخدم الملف UTF-8 BOM لضمان فتح النصوص بشكل صحيح في Excel، ويصدّر Snippet بطول محدود بدلاً من الوثيقة الكاملة. كما تُحمى الخلايا النصية التي تبدأ بعلامات صيغ Excel. تم اختبار دمج المصدرين، Metadata الخاصة بالـCluster، وبداية UTF-8 BOM ضمن الاختبارات الآلية.
+
+## 18. سجل الاستعلامات Recent Queries
+
+تمت إضافة تحسين واجهة بسيط يحفظ آخر خمسة استعلامات ناجحة داخل `st.session_state`. يظهر السجل مباشرة تحت خانة Search Query، ويمكن للمستخدم الضغط على أي استعلام سابق لإعادة تعبئة الحقل دون تنفيذ البحث تلقائياً. ينفذ المستخدم البحث بعد ذلك بالضغط على Search، مما يمنع تنفيذ استعلام غير مقصود.
+
+تنظف `QueryHistoryService` المسافات، وتتجاهل الاستعلام الفارغ، وتمنع التكرار دون حساسية لحالة الأحرف. إذا تكرر استعلام يُنقل إلى بداية القائمة، وتبقى آخر خمسة عناصر فقط. يوفر زر `Clear History` مسح السجل، ويُفقد السجل تلقائياً عند انتهاء جلسة Streamlit لأنه لا يُحفظ في قاعدة البيانات. لا تؤثر هذه الإضافة على Ranking أوEvaluation أوخوارزميات الاسترجاع، وتُصنف كـUsability Improvement.
+
+## 19. صناديق شرح طرق البحث
+
+تمت إضافة Method Explanation Box أسفل قائمة Retrieval Method في الشريط الجانبي. يتغير النص تلقائياً عند اختيار TF-IDF أوBM25 أوLSA Embedding أوHybrid Parallel أوHybrid Serial أوBERT Re-ranking أوFAISS Vector Store، ويشرح باختصار آلية الاسترجاع والترتيب المستخدمة. يساعد هذا الصندوق في المناقشة والعرض ولا يغير أي خوارزمية أونتيجة.
+
+عند تفعيل Query Refinement يظهر توضيح لعملية التصحيح والتوسعة بالمرادفات. وعند تفعيل Clustering يظهر تنبيه بأنه ينظم النتائج حسب الموضوع دون تغيير rank أوscore. وعند تفعيل Crawling يظهر تنبيه بأن النتائج الخارجية تعرض في قسم مستقل ولا تُخلط درجاتها مع ترتيب Dataset الرسمي. تصنف هذه الإضافة كتحسين Explainability وUsability للواجهة.
+
+## 20. GitHub
 
 تم تجهيز المشروع للرفع على GitHub مع تجاهل الملفات الضخمة مثل:
 
@@ -277,7 +396,7 @@ python scripts\evaluate_rag.py
 
 الـ README يشرح طريقة تنزيل Dataset وتوليد الملفات الكبيرة محلياً أو على Colab.
 
-## 14. المصادر
+## 21. المصادر
 
 1. IR Datasets documentation: https://ir-datasets.com/
 2. TREC Precision Medicine Track: https://trec.nist.gov/data/precmed.html
@@ -287,3 +406,6 @@ python scripts\evaluate_rag.py
 6. Sentence Transformers documentation: https://www.sbert.net/
 7. FastAPI documentation: https://fastapi.tiangolo.com/
 8. Robertson, S. and Zaragoza, H. The Probabilistic Relevance Framework: BM25 and Beyond. Foundations and Trends in Information Retrieval, 2009.
+9. scikit-learn MiniBatchKMeans documentation: https://scikit-learn.org/stable/modules/generated/sklearn.cluster.MiniBatchKMeans.html
+10. ClinicalTrials.gov API v2: https://clinicaltrials.gov/data-api/api
+11. FAISS documentation: https://faiss.ai/
