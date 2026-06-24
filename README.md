@@ -28,10 +28,17 @@ ClinicalTrials was selected because it is not Antique, contains more than 200K d
 - Hybrid parallel retrieval with score fusion
 - Hybrid serial retrieval with BM25 candidate generation and embedding reranking
 - RAG-style chat interface with grounded source passages
+- Optional document clustering with MiniBatchKMeans over the saved LSA embeddings
+- Offline ClinicalTrials.gov crawling with an independent cached TF-IDF search
+- Local FAISS vector-store retrieval over the precomputed 64-dimensional LSA vectors
 - Evaluation with MAP, nDCG@10, Precision@10, and Recall
 - Streamlit UI
 - FastAPI REST gateway with OpenAPI documentation
 - Independent service tests
+- Before/after feature comparison dashboard with live evaluation summary cards
+- UTF-8 CSV export for official, clustered, and crawled search results
+- Session-based Recent Queries with deduplication and one-click query reuse
+- Context-sensitive method and active-feature explanation boxes in the sidebar
 
 ## Architecture
 
@@ -92,6 +99,40 @@ Run UI:
 .\run_app.cmd
 ```
 
+Build the independent document-clustering artifact (no index or database rebuild):
+
+```powershell
+python scripts\build_clusters.py --clusters 12
+```
+
+This creates `artifacts/document_clusters.joblib`, clustering metrics, and two charts. The
+`Enable Document Clustering` UI option only groups retrieved results; it preserves their
+original retrieval ranks and scores.
+
+Collect 50 public studies once for offline crawled search:
+
+```powershell
+python scripts\crawl_clinicaltrials.py --per-query 10
+python scripts\evaluate_crawled.py
+```
+
+The crawler stores the unmodified API responses, a searchable clean CSV, and collection
+metadata under `data/crawled/`. `Include Crawled Documents` searches a small independent
+TF-IDF index and displays the matches below the official dataset results. Crawled results
+are never merged into the official ranking and are not evaluated with MAP/nDCG because
+they do not have qrels.
+
+Build and evaluate the independent local vector store:
+
+```powershell
+python scripts\build_vector_store.py --backend faiss
+python scripts\evaluate_vector_store.py
+```
+
+The `vector_store` retrieval method uses FAISS `IndexFlatIP` with normalized precomputed
+LSA vectors. It does not modify `search_index.joblib` or `documents.sqlite`. If FAISS is
+unavailable, `--backend auto` safely falls back to sklearn NearestNeighbors.
+
 Run REST API:
 
 ```powershell
@@ -140,6 +181,34 @@ BERT and RAG evaluation:
 
 - `artifacts/evaluation_metrics_bert.csv`
 - `artifacts/rag_evaluation_metrics.csv`
+
+Offline crawling evaluation:
+
+- `artifacts/crawling_evaluation_metrics.csv`
+- `reports/figures/crawling_evaluation.png`
+
+Vector store evaluation:
+
+- `artifacts/vector_store_evaluation_metrics.csv`
+- `reports/figures/vector_store_evaluation.png`
+
+Feature comparison dashboard:
+
+- `artifacts/feature_comparison.csv`
+- Streamlit `Evaluation` tab → `Feature Comparison: Before & After`
+
+Search result export:
+
+- Run a search in Streamlit, optionally enabling clustering and/or crawled documents.
+- Use `Download Search Results as CSV` below the results.
+- The UTF-8 BOM file distinguishes `official_dataset` and `crawled` rows and includes
+  cluster metadata only for official results when clustering is enabled.
+
+Recent Queries:
+
+- The Search tab keeps the five most recent successful query texts in `st.session_state`.
+- Clicking a previous query fills the search box without executing it automatically.
+- Duplicate queries move to the top, and `Clear History` removes the session-only list.
 
 ## Final Arabic Report
 

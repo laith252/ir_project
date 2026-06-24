@@ -1,0 +1,2 @@
+documents_requested,successful_documents,failed_documents,duplicate_documents_removed,unique_documents,average_document_length_words,average_search_latency_ms,max_search_latency_ms,average_results_at_5
+50,50,0,0,50,107.04,0.4030800000327872,1.0625000013533281,5

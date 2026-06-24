@@ -12,5 +12,7 @@ data/raw/msmarco/*
 !data/raw/msmarco/.gitkeep
 data/raw/ir_datasets/
 artifacts/*.joblib
+!artifacts/document_clusters.joblib
 artifacts/*.sqlite
+artifacts/vector_store.index
 artifacts/bert_model_cache/

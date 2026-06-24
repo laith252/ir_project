@@ -19,12 +19,13 @@ from ir_project.config import ARTIFACTS_DIR, resolve_artifact_path
 from ir_project.services.database import DocumentStore
 from ir_project.services.indexing_service import load_index
 from ir_project.services.retrieval_service import RetrievalService
+from ir_project.services.vector_store_service import VectorStoreService
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run a search query from the command line.")
     parser.add_argument("query")
-    parser.add_argument("--method", default="hybrid_parallel", choices=["tfidf", "bm25", "embedding", "hybrid_parallel", "hybrid_serial", "bert_rerank"])
+    parser.add_argument("--method", default="hybrid_parallel", choices=["tfidf", "bm25", "embedding", "hybrid_parallel", "hybrid_serial", "bert_rerank", "vector_store"])
     parser.add_argument("--top-k", type=int, default=10)
     parser.add_argument("--k1", type=float, default=1.5)
     parser.add_argument("--b", type=float, default=0.75)
@@ -35,7 +36,14 @@ def main() -> None:
     store = DocumentStore(resolve_artifact_path(metadata["db_path"], "documents.sqlite"))
     retriever = RetrievalService(load_index(), store)
     try:
-        results = retriever.search(args.query, args.method, top_k=args.top_k, k1=args.k1, b=args.b, refine=args.refine)
+        if args.method == "vector_store":
+            results = VectorStoreService.load(retriever.index).search(
+                args.query,
+                top_k=args.top_k,
+                refine=args.refine,
+            )
+        else:
+            results = retriever.search(args.query, args.method, top_k=args.top_k, k1=args.k1, b=args.b, refine=args.refine)
     except RuntimeError as exc:
         print(f"ERROR: {exc}")
         raise SystemExit(1) from exc

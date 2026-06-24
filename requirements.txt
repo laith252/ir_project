@@ -9,3 +9,4 @@ sentence-transformers
 pandas
 fastapi
 uvicorn
+faiss-cpu==1.14.3
