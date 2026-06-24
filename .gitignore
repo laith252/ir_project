@@ -16,3 +16,4 @@ artifacts/*.joblib
 artifacts/*.sqlite
 artifacts/vector_store.index
 artifacts/bert_model_cache/
+artifacts/document_clusters.joblib
