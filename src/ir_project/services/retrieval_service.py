@@ -82,8 +82,9 @@ class RetrievalService:
         k1: float = 1.5,
         b: float = 0.75,
         refine: bool = False,
+        history: list[str] | None = None,
     ) -> list[SearchResult]:
-        query = self.refiner.refine(query) if refine else query
+        query = self.refiner.refine_with_history(query, history) if refine else query
         methods = {
             "tfidf": lambda: self.tfidf_search(query, top_k),
             "bm25": lambda: self.bm25_search(query, top_k, k1=k1, b=b),

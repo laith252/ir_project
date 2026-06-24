@@ -19,8 +19,15 @@ class RagService:
         self.store = store
         self.processor = TextProcessor()
 
-    def answer(self, question: str, method: str = "hybrid_parallel", top_k: int = 5, refine: bool = False) -> RagAnswer:
-        results = self.retriever.search(question, method=method, top_k=top_k, refine=refine)
+    def answer(
+        self,
+        question: str,
+        method: str = "hybrid_parallel",
+        top_k: int = 5,
+        refine: bool = False,
+        history: list[str] | None = None,
+    ) -> RagAnswer:
+        results = self.retriever.search(question, method=method, top_k=top_k, refine=refine, history=history)
         documents = self.store.get_many([result.doc_id for result in results])
         sources = []
         evidence = []

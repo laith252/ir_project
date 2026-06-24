@@ -22,6 +22,8 @@ ClinicalTrials was selected because it is not Antique, contains more than 200K d
 - BM25 retrieval with configurable `k1` and `b`
 - Latent semantic embedding retrieval using TF-IDF + TruncatedSVD
 - Query refinement with lightweight spelling correction and synonym expansion
+- Session search history with similar-query suggestions
+- History-based query expansion that adds related terms from past searches
 - BERT/Sentence-BERT reranking after BM25 candidate retrieval
 - Hybrid parallel retrieval with score fusion
 - Hybrid serial retrieval with BM25 candidate generation and embedding reranking

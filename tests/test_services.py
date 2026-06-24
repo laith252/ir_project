@@ -19,7 +19,7 @@ from ir_project.services.text_processing import TextProcessor
 
 
 class FakeRetriever:
-    def search(self, query, method, top_k, refine=False):
+    def search(self, query, method, top_k, refine=False, history=None):
         return [SearchResult("D1", 1.0, 1, method)]
 
 
@@ -38,6 +38,19 @@ class ServiceTests(unittest.TestCase):
         self.assertIn("treatment", refined)
         self.assertIn("therapy", refined)
         self.assertIn("tumor", refined)
+
+    def test_history_based_query_refinement(self):
+        refiner = QueryRefinementService(TextProcessor())
+        history = [
+            "EGFR lung cancer immunotherapy trials",
+            "breast cancer hormone therapy",
+            "diabetes insulin treatment",
+        ]
+        refined = refiner.refine_with_history("lung cancer", history)
+        suggestions = refiner.suggest_from_history("lung cancer", history)
+        self.assertIn("egfr", refined)
+        self.assertIn("immunotherapy", refined)
+        self.assertEqual(suggestions[0], "EGFR lung cancer immunotherapy trials")
 
     def test_ir_metrics(self):
         results = [

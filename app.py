@@ -1,5 +1,6 @@
 import os
 import sys
+import inspect
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
@@ -31,7 +32,43 @@ def load_services():
 
 metadata, retriever, rag = load_services()
 
+if retriever is not None:
+    search_params = inspect.signature(retriever.search).parameters
+    refiner_is_current = hasattr(retriever.refiner, "suggest_from_history")
+    if "history" not in search_params or not refiner_is_current:
+        st.cache_resource.clear()
+        metadata, retriever, rag = load_services()
+
 st.title("Information Retrieval System")
+
+
+def search_with_optional_history(retriever, query, method, top_k, k1, b, refine, history):
+    kwargs = {
+        "method": method,
+        "top_k": top_k,
+        "k1": k1,
+        "b": b,
+        "refine": refine,
+    }
+    if "history" in inspect.signature(retriever.search).parameters:
+        kwargs["history"] = history
+    return retriever.search(query, **kwargs)
+
+
+def answer_with_optional_history(rag, question, method, top_k, refine, history):
+    kwargs = {
+        "method": method,
+        "top_k": top_k,
+        "refine": refine,
+    }
+    if "history" in inspect.signature(rag.answer).parameters:
+        kwargs["history"] = history
+    return rag.answer(question, **kwargs)
+
+if "search_history" not in st.session_state:
+    st.session_state.search_history = []
+if "search_query" not in st.session_state:
+    st.session_state.search_query = "lung cancer EGFR adult"
 
 if metadata is None:
     st.error(
@@ -59,14 +96,42 @@ with st.sidebar:
     k1 = st.slider("BM25 k1", min_value=0.2, max_value=3.0, value=1.5, step=0.1)
     b = st.slider("BM25 b", min_value=0.0, max_value=1.0, value=0.75, step=0.05)
     use_refinement = st.checkbox("Query refinement", value=True)
+    use_history = st.checkbox("Use search history", value=True)
+    if st.session_state.search_history:
+        st.subheader("Search history")
+        for past_query in reversed(st.session_state.search_history[-5:]):
+            st.caption(past_query)
 
 search_tab, rag_tab, metrics_tab = st.tabs(["Search", "RAG Chat", "Evaluation"])
 
 with search_tab:
-    query = st.text_input("Search query", value="lung cancer EGFR adult")
+    query = st.text_input("Search query", key="search_query")
+    history = st.session_state.search_history if use_history else []
+    suggestions = (
+        retriever.refiner.suggest_from_history(query, history)
+        if hasattr(retriever.refiner, "suggest_from_history")
+        else []
+    )
+    if suggestions:
+        selected_suggestion = st.selectbox("History suggestions", [""] + suggestions)
+        if selected_suggestion and st.button("Use suggestion"):
+            st.session_state.search_query = selected_suggestion
+            st.rerun()
     if st.button("Search", type="primary"):
         try:
-            results = retriever.search(query, method=method, top_k=top_k, k1=k1, b=b, refine=use_refinement)
+            results = search_with_optional_history(
+                retriever,
+                query,
+                method=method,
+                top_k=top_k,
+                k1=k1,
+                b=b,
+                refine=use_refinement,
+                history=history,
+            )
+            if query.strip():
+                st.session_state.search_history.append(query.strip())
+                st.session_state.search_history = st.session_state.search_history[-20:]
             docs = rag.store.get_many([result.doc_id for result in results])
             for result in results:
                 doc = docs.get(result.doc_id, {})
@@ -86,7 +151,18 @@ with rag_tab:
     question = st.text_input("Ask a question", value="Which clinical trials discuss lung cancer and EGFR?")
     if st.button("Generate grounded answer"):
         try:
-            answer = rag.answer(question, method=method, top_k=min(top_k, 8), refine=use_refinement)
+            history = st.session_state.search_history if use_history else []
+            answer = answer_with_optional_history(
+                rag,
+                question,
+                method=method,
+                top_k=min(top_k, 8),
+                refine=use_refinement,
+                history=history,
+            )
+            if question.strip():
+                st.session_state.search_history.append(question.strip())
+                st.session_state.search_history = st.session_state.search_history[-20:]
             st.markdown(answer.answer)
             st.subheader("Sources")
             for source in answer.sources:

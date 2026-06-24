@@ -1,4 +1,5 @@
 .codex_deps/
+.venv/
 .tmp/
 __pycache__/
 *.pyc
